@@ -3,6 +3,7 @@ import pandas as pd
 import default_page
 import input_page
 
+from sklearn.metrics import r2_score
 from datetime import datetime, timedelta
 from default_page import *
 from dateutil import parser
@@ -67,11 +68,11 @@ class SelectPage(default_page.Default):
             standard = standardday_textbox.get()
             timespan = int(timespan_textbox.get())
 
-            duration_label = tk.Label(self, text='duration {}  -  {}'.format(start, end), font=('Arial', 11))
             standard_date = datetime.strptime(standard, '%Y-%m-%d')
             time_change = timedelta(days=timespan)
-            start_date = standard_date - time_change
-            end_date = standard_date + time_change
+            start_date = str(standard_date - time_change)[:10]
+            end_date = str(standard_date + time_change)[:10]
+            duration_label.config(text='{}  -  {}'.format(start_date, end_date))
 
             data = self.data.copy()
             base = data['Timestamp'][0]
@@ -91,6 +92,7 @@ class SelectPage(default_page.Default):
             data['IAQI_NO2'] = data['NO2'].apply(lambda x: self.calculate_IAQI(self.IAQI_list, self.NO2_list, x))
             data['IAQI_PM10'] = data['PM10'].apply(lambda x: self.calculate_IAQI(self.IAQI_list, self.PM10_list, x))
             data['AQI'] = data[['IAQI_O3', 'IAQI_SO2', 'IAQI_NO2', 'IAQI_PM10']].max(axis=1)
+            print(data)
 
             for x, y in zip(self.label_sensor_list, self.Sensor_list):
                 x.config(text=data[data['SensorID']==y]['AQI'].max())
@@ -159,7 +161,9 @@ class SelectPage(default_page.Default):
             y1 = data1['AQI']
             data2 = data[data['SensorID']==area2]
             y2 = data2['AQI']
-            fig = self.plot_plot(y1, y2, 'corr_gragh')
+            r2 = r2_score(y1, y2)
+            title = 'corr_gragh ' + 'R-squared = %0.2f' % r2
+            fig = self.plot_plot(y1, y2, title)
             canvas = FigureCanvasTkAgg(fig, corr_frame)
             canvas.draw()
             canvas.get_tk_widget().grid(row=0, column=0)
@@ -265,6 +269,7 @@ class SelectPage(default_page.Default):
         ax1.set_xlabel('area1 AQI')
         ax1.set_ylabel('area2 AQI')
         ax1.title.set_text(title)
+
     
         # データをプロットする。
         ax1.scatter(x, y)
