@@ -1,8 +1,10 @@
 import tkinter as tk
 import pandas as pd
-from tkinter.filedialog import askopenfilename
 import default_page
 import select_page
+
+from tkinter.filedialog import askopenfilename
+from dateutil import parser
 
 
 class InputPage(default_page.Default):
@@ -53,10 +55,60 @@ class InputPage(default_page.Default):
         read_label = tk.Label(self, font=('Arial', 11), fg='red')
         read_label.grid(row=40, column=0, padx=5, pady=10)
 
+        number_label = tk.Label(self, text='How many columns', font=('Arial', 11))
+        number_label.grid(row=50, column=0, padx=5, pady=10)
+        number_textbox = tk.Entry(self, text='0', font=('Arial', 11))
+        number_textbox.grid(row=50, column=1, padx=5, pady=10)
+
+        def combine_data(data1, data2, number):
+            #read data
+            data11 = data1['Timestamp;SensorID;AttributeID;Value;'].str.split(';', expand = True)
+            data11.columns = ['Timestamp', 'SensorID', 'AttributeID', 'Value','']
+            try:
+                data11 = data11[-number:]
+            except:
+                read_label.config(text='column number is over')
+            del data11['']
+
+            data22 = data2['SensorID;Latitude;Longitude;Description'].str.split(';', expand = True)
+            data22.columns = ['SensorID', 'Latitude', 'Longitude', 'Description']
+
+            #Merge two tables
+            data3 = pd.merge(data11,data22)
+            del data3['Description']
+
+            #Define concat function
+            def concat_func(x):
+                return pd.Series({
+                    'SensorID':','.join(x['SensorID'].unique()),
+                    'AttributeID':','.join(x['AttributeID'].unique()),
+                    'Value':','.join(x['Value'].unique()),
+                    'Latitude':','.join(x['Latitude'].unique()),
+                    'Longitude':','.join(x['Longitude'].unique()),
+                })
+
+            data4 = data3.groupby(data3['Timestamp']).apply(concat_func).reset_index()
+
+            del data4['AttributeID']
+
+            data44 = data4['Value'].str.split(',', expand = True)
+            data44.columns = ['O3', 'NO2', 'SO2', 'PM10','NA1','NA2','NA3','NA4']
+            del data44['NA1']
+            del data44['NA2']
+            del data44['NA3']
+            del data44['NA4']
+
+            del data4['Value']
+
+            dataf = pd.merge(data4,data44,left_index = True, right_index = True)
+            dataf['Timestamp'] = dataf['Timestamp'].apply(lambda x: parser.parse(x))
+            return dataf
+
         def excute():
             url1 = sensor_textbox.get()
             url2 = attribute_textbox.get()
             url3 = all_sensors_textbox.get()
+            number = int(number_textbox.get())
             
             if url1=='' or url2=='' or url3=='':
                 read_label.config(text='you need to select all')
@@ -66,65 +118,22 @@ class InputPage(default_page.Default):
                 sensor_data = pd.read_csv(url1, encoding='utf-8')
                 # attribute_data = pd.read_csv(url2, encoding='utf-8')
                 all_sensors_data = pd.read_csv(url3, encoding='utf-16')
-                self.data = self.combine_data(all_sensors_data, sensor_data)
-                print(self.data)
+                data = combine_data(all_sensors_data, sensor_data, number)
+                print(data)
             except:
-                sensor_data = pd.read_csv(url1, encoding='utf-8')
-                # attribute_data = pd.read_csv(url2, encoding='utf-8')
-                all_sensors_data = pd.read_csv(url3, encoding='utf-16')
-                self.data = self.combine_data(all_sensors_data, sensor_data)
-                print(self.data)
                 read_label.config(text='path is wrong')
                 return
         
-            self.destroy()
-            new_app = select_page.SelectPage('Please select parameters')
+            new_app = select_page.SelectPage('Please select parameters', data)
             new_app.mainloop()
             
 
         read_btn = tk.Button(self, command=excute, text='read')
-        read_btn.grid(row=40, column=2, padx=5, pady=10)
+        read_btn.grid(row=50, column=2, padx=5, pady=10)
 
     def new_window(self):
         new_app = InputPage('Please input data')
         new_app.mainloop()
 
-    def combine_data(self, data1, data2):
-        #read data
-        data11 = data1['Timestamp;SensorID;AttributeID;Value;'].str.split(';', expand = True)
-        data11.columns = ['Timestamp', 'SensorID', 'AttributeID', 'Value','']
-        del data11['']
-
-        data22 = data2['SensorID;Latitude;Longitude;Description'].str.split(';', expand = True)
-        data22.columns = ['SensorID', 'Latitude', 'Longitude', 'Description']
-
-        #Merge two tables
-        data3 = pd.merge(data11,data22)
-        del data3['Description']
-
-        #Define concat function
-        def concat_func(x):
-            return pd.Series({
-                'SensorID':','.join(x['SensorID'].unique()),
-                'AttributeID':','.join(x['AttributeID'].unique()),
-                'Value':','.join(x['Value'].unique()),
-                'Latitude':','.join(x['Latitude'].unique()),
-                'Longitude':','.join(x['Longitude'].unique()),
-            })
-
-        data4 = data3.groupby(data3['Timestamp']).apply(concat_func).reset_index()
-
-        del data4['AttributeID']
-
-        data44 = data4['Value'].str.split(',', expand = True)
-        data44.columns = ['O3', 'NO2', 'SO2', 'PM10','NA1','NA2','NA3','NA4']
-        del data44['NA1']
-        del data44['NA2']
-        del data44['NA3']
-        del data44['NA4']
-
-        del data4['Value']
-
-        dataf = pd.merge(data4,data44,left_index = True, right_index = True)
-        dataf
+    
         

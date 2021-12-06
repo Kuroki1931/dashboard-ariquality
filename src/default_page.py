@@ -8,8 +8,8 @@ class Default(tk.Tk):
         # title
         label = tk.Label(self, text=title, font=('Arial', 14))
         label.grid(row=0, column=0, padx=5, pady=10)
-        # data
-        self.data = None
+    
+    
 
         
        
